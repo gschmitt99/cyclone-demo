@@ -6,6 +6,7 @@ if (!global._wss) {
 }
 
 export function broadcast(type: any, payload: any = {}) {
+    return; // don't do this on vercel at all.
   const json = JSON.stringify({ type, payload });
   const server = global._wss!;
 

@@ -13,6 +13,7 @@ export function useItems() {
   }, []);
 
   useEffect(() => {
+    return; // don't run on vercel at all.
     //const ws = new WebSocket("ws://${window.location.hostname}:3002");
     //const ws = new WebSocket("ws://phoenix2025:3002");
     // by all accounts this will not work on vercel and need to perform a different approach.
