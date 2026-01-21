@@ -1,19 +1,5 @@
-import type { Role } from "./types";
+import type { Role, TransitionRule, WorkflowState } from "./types";
 
-export type WorkflowState = 
-  | "Saw"
-  | "Thread"
-  | "CNC"
-  | "QC"
-  | "Hold"
-  | "Rework"
-  | "Ship"
-  | "Complete";
-
-  export interface TransitionRule {
-  to: WorkflowState;
-  allowedRoles: Role[];
-};
 
 export const workflowRules: Record<WorkflowState, TransitionRule[]> = {
   Saw: [
@@ -52,3 +38,8 @@ export const allowedTransitions: Record<WorkflowState, WorkflowState[]> = {
   Ship: ["Complete"],
   Complete: [],
 };
+
+export function canTransition(from: WorkflowState, to: WorkflowState): boolean {
+  const rules = workflowRules[from] || [];
+  return rules.some(rule => rule.to === to);
+}

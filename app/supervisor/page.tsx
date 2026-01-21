@@ -2,23 +2,17 @@
 
 import Link from "next/link";
 import { useItems } from "@/app/hooks/useItems";
-
-function findBottleneck(counts: Record<string, number>): string | null {
-  let bottleneckState: string | null = null;
-  let maxCount = 0;
-
-  for (const [state, count] of Object.entries(counts)) {
-    if (count > maxCount) {
-      bottleneckState = state;
-      maxCount = count;
-    }
-  }
-
-  return bottleneckState;
-}
+import { useEffect, useState } from "react";
 
 export default function SupervisorPage() {
   const { items } = useItems();
+
+  // Force re-render every second so timers update
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   // Count items by state
   const counts = items.reduce<Record<string, number>>((acc, item) => {
@@ -26,20 +20,17 @@ export default function SupervisorPage() {
     return acc;
   }, {});
 
-  // Identify aging holds (over 5 minutes for demo purposes)
-  const agingHolds = items.filter((item) => {
-    if (item.state !== "Hold") return false;
-    const last = item.history[item.history.length - 1];
-    if (!last) return false;
-    const ageMs = Date.now() - new Date(last.timestamp).getTime();
-    return ageMs > 5 * 60 * 1000;
+  // Identify bottlenecked items (stuck > 10 seconds)
+  const bottleneckedItems = items.filter((item) => {
+    const ageSeconds = (Date.now() - item.stateEntered) / 1000;
+    return ageSeconds > 10;
   });
-
-  const bottleneck = findBottleneck(counts);
 
   return (
     <div style={{ padding: 20 }}>
-      <Link href="/" style={{ display: "inline-block", marginBottom: 20 }}>Back</Link>
+      <Link href="/" style={{ display: "inline-block", marginBottom: 20 }}>
+        Back
+      </Link>
 
       <h1>Supervisor Dashboard</h1>
       <p>High-level production visibility and bottleneck detection.</p>
@@ -56,31 +47,26 @@ export default function SupervisorPage() {
         </ul>
       </section>
 
-      {/* Bottleneck */}
+      {/* Bottlenecked items */}
       <section style={{ marginTop: 20 }}>
-        <h2>Bottleneck</h2>
-        {bottleneck ? (
-          <p>
-            Current bottleneck: <strong>{bottleneck}</strong> (highest WIP)
-          </p>
-        ) : (
-          <p>No bottlenecks detected.</p>
-        )}
-      </section>
+        <h2>Bottlenecked Items (stuck more than 10s)</h2>
 
-      {/* Aging holds */}
-      <section style={{ marginTop: 20 }}>
-        <h2>Aging QC Holds</h2>
-        {agingHolds.length === 0 ? (
-          <p>No aging holds.</p>
+        {bottleneckedItems.length === 0 ? (
+          <p>No bottlenecks detected.</p>
         ) : (
           <ul>
-            {agingHolds.map((item) => (
-              <li key={item.id}>
-                Item #{item.id} — on Hold since{" "}
-                {item.history[item.history.length - 1].timestamp}
-              </li>
-            ))}
+            {bottleneckedItems.map((item) => {
+              const ageSeconds = Math.floor(
+                (Date.now() - item.stateEntered) / 1000
+              );
+
+              return (
+                <li key={item.id}>
+                  Item #{item.id} — State: <strong>{item.state}</strong> —{" "}
+                  {ageSeconds}s in state
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
@@ -88,31 +74,42 @@ export default function SupervisorPage() {
       {/* Full item list */}
       <section style={{ marginTop: 20 }}>
         <h2>All Items</h2>
-        {items.map((item) => (
-          <div
-            key={item.id}
-            style={{
-              border: "1px solid #ccc",
-              padding: 12,
-              marginBottom: 16,
-            }}
-          >
-            <h3>
-              Item #{item.id} — State: <strong>{item.state}</strong>
-            </h3>
 
-            <details style={{ marginTop: 10 }}>
-              <summary>Audit History</summary>
-              <ul>
-                {item.history.map((h, idx) => (
-                  <li key={idx}>
-                    {h.timestamp}: {h.from} → {h.to} by {h.actor}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          </div>
-        ))}
+        {items.map((item) => {
+          const inState = Math.floor(
+            (Date.now() - item.stateEntered) / 1000
+          );
+
+          return (
+            <div
+              key={item.id}
+              style={{
+                border: "1px solid #ccc",
+                padding: 12,
+                marginBottom: 16,
+              }}
+            >
+              <h3>
+                Item #{item.id} — State: <strong>{item.state}</strong>
+              </h3>
+
+              <p style={{ marginTop: 4, color: "#555" }}>
+                Time in state: {inState}s
+              </p>
+
+              <details style={{ marginTop: 10 }}>
+                <summary>Audit History</summary>
+                <ul>
+                  {item.history.map((h, idx) => (
+                    <li key={idx}>
+                      {h.timestamp}: {h.from} → {h.to} by {h.actor}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            </div>
+          );
+        })}
       </section>
     </div>
   );

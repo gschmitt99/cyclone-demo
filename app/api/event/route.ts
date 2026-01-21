@@ -1,7 +1,9 @@
+import "@/lib/ws"
 import { NextResponse } from "next/server";
 import { getItems } from "@/lib/db";
-import { Role } from "@/lib/types";
-import { allowedTransitions, workflowRules, WorkflowState } from "@/lib/workflow";
+import { Role, WorkflowState } from "@/lib/types";
+import { canTransition, workflowRules } from "@/lib/workflow";
+import { broadcast } from "@/lib/ws";
 
 export async function POST(req: Request) {
   try {
@@ -49,8 +51,20 @@ export async function POST(req: Request) {
         );
     }
 
+    // server side check the state transition
+    if (!canTransition(item.state, action)) {
+      return NextResponse.json(
+        {
+          error: `Invalid transition: ${item.state} → ${action}`,
+          allowed: workflowRules[item.state],
+        },
+        { status: 400 }
+      );
+    }
+
     // Update state
     item.state = action;
+    item.stateEntered = Date.now();
 
     // Append audit event
     item.history.push({
@@ -59,6 +73,8 @@ export async function POST(req: Request) {
       to: action as WorkflowState,
       actor: actor as string,
     });
+
+    broadcast( "item-updated", { item });
 
     return NextResponse.json({ item });
   } catch (err) {

@@ -15,6 +15,7 @@ export default function Home() {
     <div style={{ padding: 20 }}>
       <h1>Workflow Demo</h1>
       <button
+        className="action-button"
         onClick={reset}
         style={{
           padding: "8px 12px",

@@ -1,11 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useItems } from "@/app/hooks/useItems";
 import { workflowRules } from "@/lib/workflow";
 
 export default function OperatorPage() {
   const { items, setItems } = useItems();
+
+  // Force a re-render every second for the "time in state" timer
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   async function move(itemId: number, action: string) {
     const res = await fetch("/api/event", {
@@ -39,6 +47,7 @@ export default function OperatorPage() {
 
       {items.map((item) => {
         const rules = workflowRules[item.state] || [];
+        const inState = Math.floor((Date.now() - item.stateEntered) / 1000);
 
         return (
           <div
@@ -52,6 +61,9 @@ export default function OperatorPage() {
             <h3>
               Item #{item.id} — State: <strong>{item.state}</strong>
             </h3>
+            <p style={{ marginTop: 4, color: "#555" }}>
+              Time in state: {inState}s
+            </p>
 
             {/* Render allowed transitions */}
             {rules.length === 0 ? (
@@ -59,6 +71,7 @@ export default function OperatorPage() {
             ) : (
               rules.map((rule) => (
                 <button
+                  className="action-button"
                   key={rule.to}
                   onClick={() => move(item.id, rule.to)}
                   style={{ marginRight: 8 }}
